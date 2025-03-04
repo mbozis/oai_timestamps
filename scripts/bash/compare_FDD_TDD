@@ -1,0 +1,59 @@
+#!/bin/bash
+#### DCS Lab UOP ####################
+# Nov 2024                          #
+# Author Manolis Bozis              #
+#####################################
+
+#### the first argument is the filename of log file to be proccesses ###
+#### the second argument is the title of the produced graph ############
+FILENAME1=$1
+FILENAME2=$2                                                            #
+TITLE=$3
+
+########################### create and run R project script to draw the data ####################################
+cat > plot.r << EOL                                                                                 
+# Generate the data
+data1 <- scan("$FILENAME1")
+data2 <- scan("$FILENAME2")
+
+x1<-1:length(data1)
+x2<-1:length(data2)
+x<- 1:139
+lenx<-length(x)
+title <- "$TITLE"
+
+maxdata <- max(max(data1), max(data2))
+maxdata <- 1.25 * maxdata
+# Create the plot
+jpeg(file="Rplots.jpg")
+plot(x=x1,y=data1,lty=1, lwd=1, xlim=c(1,139),ylim=c(0,maxdata),type="l", col = 'blue',main = title,xlab="Frame Report Number",ylab="Execution speed ratio (times x realtim speed)",cex.lab=1.25, cex.main=1.25, cex.axis=1.25);
+lines(x2, data2, lty=2,type="l", col = 'red');
+abline(h=1,col="black", lwd=1, lty=3);
+legend('topleft', legend = c('Scenario 3 (TDD)', 'Scenario 7 (FDD)', 'realtime'), col = c('blue', 'red', 'black' ), lty = 1:3)
+dev.off()
+
+## TDD ###################
+#test_condition<- data <= median(data) & mean(data) >= data
+#below_median_mean_TDD <- data1[test_condition]
+#print("The average value of execution speed ratios in TDD during UE connection is:")
+#mean(below_median_mean_TDD)
+#print("The min value of execution speed ratios in TDD is:")
+#min(data1)
+#print("The standard deviation of execution speed ratios during UE conneciton in TDD is:")
+#sd(below_median_mean_TDD)
+###  FDD ####
+#below_median_mean_FDD <- data2[test_condition]
+#print("The average value of execution speed ratios in FDD during UE connection is:")
+#mean(below_median_mean_FDD)
+#print("The min value of execution speed ratios in FDD is:")
+#min(data2)
+#print("The standard deviation of execution speed ratios during UE conneciton in FDD is:")
+#sd(below_median_mean_FDD)
+EOL
+# execute script and save file 
+Rscript plot.r > stats.txt
+TITLE=$(echo $TITLE | tr " " "_")
+mv Rplots.jpg exe_speed_ratios_"$TITLE".jpg
+open exe_speed_ratios_"$TITLE".jpg
+#################################################################################################################
+

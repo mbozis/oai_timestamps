@@ -1,0 +1,93 @@
+#!/bin/bash
+#### DCS Lab UOP ####################
+# Nov 2024                          #
+# Author Manolis Bozis              #
+#####################################
+
+#### the first argument is the filename of log file to be proccesses ###
+#### the second argument is the title of the produced graph ############
+FILENAME=$1                                                            #
+TITLE=$2
+########################################################################
+########## get lines with timestamps form input file and put them in data.csv file #############################
+cat ${FILENAME} | grep Timestamp | awk '{print $3,$4}' |sed "s/nanosec=//g;s/sec=//g" | tr ' ' ',' > data.csv
+################################################################################################################
+
+############# Clear contents of csv files ######################################################################
+cat /dev/null > timestamps.csv # clear any contents of timestamps.csv file
+cat /dev/null > timediffs.csv # clear any contents of timediffs.csv file
+cat /dev/null > speedratios.csv # clear any contents of speedratios.csv file
+################################################################################################################
+
+
+######### merge sec and nonoseconds in one value and put those values in timestamps.csv file  ##################
+while read line
+do
+   #echo "Record is : $line"
+   INT_PART=$(echo $line | awk 'BEGIN {FS = ","}; {print $1}')
+   DEC_PART=$(echo $line | awk 'BEGIN {FS = ","}; {print $2}')
+   RESULT=$(echo "scale=9;${INT_PART}+(${DEC_PART}/1000000000)" | bc)
+   #echo ${INT_PART}
+   #echo ${DEC_PART}
+   echo ${RESULT} >> timestamps.csv
+done < data.csv
+################################################################################################################
+
+####################### create the file timediffs.csv containing the differences of timestamps #################
+read -r PREVIOUS < timestamps.csv # read the first line of the file
+while read line
+do
+    TIMEDIFF=$(echo "scale=9;${line}-${PREVIOUS}" | bc)
+    echo ${TIMEDIFF} >> timediffs.csv
+    PREVIOUS=${line} # keep the last line processed
+done < timestamps.csv
+# remove first line containing 0 from the timediffs file 
+tail -n +2 "timediffs.csv" > "timediffs.tmp" && mv "timediffs.tmp" "timediffs.csv"
+################################################################################################################
+
+########################### write execution speed to normal ratios in speedratios.csv file #####################
+# nominal duration = 128 frames x 10ms = 1.28 s
+# speed ratio is thus 1.28 / <duration of 128 frame report>
+while read line
+do
+    SPEED_RATIO=$(echo "scale=9;1.28/${line}" | bc)
+    echo ${SPEED_RATIO} >> speedratios.csv
+done < timediffs.csv
+#################################################################################################################
+
+########################### create and run R project script to draw the data ####################################
+cat > plot.r << EOL                                                                                 
+# Generate the data
+data <- scan("speedratios.csv")
+x <- 1:length(data)
+title <- "$TITLE"
+if (max(data)>1)
+{
+maxdata <- max(data) + (mean(data)/4)
+} else {
+maxdata <- 1.25
+}
+#y <- rep(1,length(data))
+attach(mtcars)
+# Create the plot
+jpeg(file="Rplots.jpg")
+plot(x, data, ylim=c(0,maxdata),type="l", col = 'blue',main = title,xlab="Frame Report Number",ylab="Execution speed ratio (times x realtime speed)",cex.lab=1.25, cex.main=1.25, cex.axis=1.25);
+abline(h=1,col="red", lwd=2);
+legend('topleft', legend = c('simulation', 'realtime'), col = c('blue', 'red'), lty = 1)
+dev.off()
+test_condition<- data <= median(data) & mean(data) >= data
+below_median_mean <- data[test_condition]
+print("The average value of execution speed ratios during UE connection is:")
+mean(below_median_mean)
+print("The min value of execution speed ratios is:")
+min(data)
+print("The standard deviation of execution speed ratios during UE conneciton is:")
+sd(below_median_mean)
+EOL
+# execute script and save file 
+Rscript plot.r > stats.txt
+TITLE=$(echo $TITLE | tr " " "_")
+mv Rplots.jpg exe_speed_ratios_"$TITLE".jpg
+open exe_speed_ratios_"$TITLE".jpg
+#################################################################################################################
+

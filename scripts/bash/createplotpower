@@ -1,0 +1,64 @@
+#!/bin/bash
+#### DCS Lab UOP ####################
+# Nov 2024                          #
+# Author Manolis Bozis              #
+#####################################
+TITLE="CPU power consumption"
+#### the first argument is the filename of log file to be proccesses ###
+#### the second argument is the title of the produced graph ############
+FILENAME1=$1
+FILENAME2=$2
+FILENAME3=$3
+FILENAME4=$4
+SCENARIO1=$5
+SCENARIO2=$6
+SCENARIO3=$7
+SCENARIO4=$8
+########################################################################
+
+########## file processing if needed ###################################
+
+########################################################################
+
+
+
+########################### create and run R project script to draw the data ####################################
+cat > plot.r << EOL   
+library(dplyr)                                                                              
+# Generate the data
+data1 <- scan("$FILENAME1")
+data2 <- scan("$FILENAME2")
+data3 <- scan("$FILENAME3")
+data4 <- scan("$FILENAME4")
+x1 <- 1:length(data1)
+x2 <- 1:length(data2)
+x3 <- 1:length(data3)
+x4 <- 1:length(data4)
+tag1 <- "$SCENARIO1"
+tag2 <- "$SCENARIO2"
+tag3 <- "$SCENARIO3"
+tag4 <- "$SCENARIO4"
+
+title <- "$TITLE"
+maxdata <- max(data1, data2, data3, data4) 
+margin = case_when(
+    maxdata%in%data1 ~ mean(data1)/4,
+    maxdata%in%data2 ~ mean(data2)/4,
+    maxdata%in%data3 ~ mean(data3)/4,
+    maxdata%in%data4 ~ mean(data4)/4)
+maxdata <- maxdata + margin    
+# Create the plot
+plot(x=x1, y=data1, ylim=c(0,maxdata),lty=1,type="l", col = 'blue',main = title,xlab="Time (s)",ylab="power (watts)",cex.lab=1.25, cex.main=1.25, cex.axis=1.25);
+lines(x2, data2, lty=2,type="l", col = 'red');
+lines(x3, data3, lty=3,type="l", col = 'black');
+lines(x4, data4, lty=4,type="l", col = 'green');
+legend('topleft', legend = c(tag1, tag2, tag3, tag4), col = c('blue', 'red', 'black', 'green'), lty = 1)
+
+EOL
+# execute script and save file 
+Rscript plot.r 
+TITLE=$(echo $TITLE | tr " " "_")
+mv Rplots.pdf exe_speed_ratios_"$TITLE".pdf
+open exe_speed_ratios_"$TITLE".pdf
+#################################################################################################################
+
