@@ -1,0 +1,22 @@
+--- gNB_scheduler.c	2025-03-14 20:44:35.260420115 +0200
++++ new_gNB_scheduler.c	2024-11-19 11:51:21.042392000 +0200
+@@ -52,6 +52,7 @@
+ 
+ #include <errno.h>
+ #include <string.h>
++#include <time.h>
+ 
+ const uint8_t nr_rv_round_map[4] = {0, 2, 3, 1};
+ 
+@@ -210,8 +211,10 @@
+ 
+   if ((slot == 0) && (frame & 127) == 0) {
+     char stats_output[32656] = {0};
++    struct timespec tms;
++    clock_gettime(CLOCK_REALTIME,&tms);
+     dump_mac_stats(gNB, stats_output, sizeof(stats_output), true);
+-    LOG_I(NR_MAC, "Frame.Slot %d.%d\n%s\n", frame, slot, stats_output);
++    LOG_I(NR_MAC, "Timestamp sec=%ld nanosec=%ld\nFrame.Slot %d.%d\n%s\n",tms.tv_sec,tms.tv_nsec,frame, slot, stats_output);
+   }
+ 
+   nr_mac_update_timers(module_idP, frame, slot);
